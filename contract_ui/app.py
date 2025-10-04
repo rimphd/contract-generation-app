@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+import os
+import requests
+from flask import Flask, render_template, request, redirect, url_for, flash
+
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+DEFAULT_MODEL = "meta-llama/llama-3.1-70b-instruct"  # change si besoin
+
+app = Flask(__name__)
+app.secret_key = "dev-secret"  # change en prod
+
+def call_openrouter(model_id: str, prompt: str, temperature: float = 0.4, max_tokens: int = 1600) -> str:
+    if not OPENROUTER_API_KEY:
+        raise RuntimeError("OPENROUTER_API_KEY manquante. Défini-la dans ton terminal avant de lancer l'app.")
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "http://localhost",
+        "X-Title": "Contract-UI",
+    }
+    payload = {
+        "model": model_id,
+        "messages": [
+            {"role": "system", "content": "Tu es un assistant juridique et tu rédiges des contrats complets et soignés."},
+            {"role": "user", "content": prompt},
+        ],
+        "temperature": float(temperature),
+        "max_tokens": int(max_tokens),
+        "stream": False,
+    }
+    r = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=180)
+    r.raise_for_status()
+    data = r.json()
+    return data["choices"][0]["message"]["content"].strip()
+
+def build_prompt(p):
+    return f"""
+Tu es un assistant juridique. Génère un contrat de location (contrat de bail) clair et professionnel.
+
+Paramètres:
+- LOCATAIRE: {p['tenant_name']}
+- BAILLEUR: {p['landlord_name']}
+- LOYER_MENSUEL: {p['rent']} MAD
+- DEPOT_DE_GARANTIE: {p['security_deposit']} MAD
+- DUREE_MOIS: {p['duration_months']} mois
+- ADRESSE: {p['address']}
+- DATE_DEBUT: {p['start_date']}
+
+Exigences de sortie:
+- Rédige le contrat COMPLET en français, style formel (1–2 pages).
+- Pas de JSON ni de code block. Retourne du TEXTE pur prêt à copier.
+- Inclure: identité des parties, objet/adresse du bien, durée/renouvellement, loyer et paiement,
+  dépôt de garantie, obligations bailleur/locataire, réparations/charges, résiliation/préavis,
+  état des lieux, clause de juridiction/applicable, signatures (placeholders).
+""".strip()
+
+@app.route("/", methods=["GET"])
+def index():
+    return render_template("index.html", default_model=DEFAULT_MODEL)
+
+@app.route("/generate", methods=["POST"])
+def generate():
+    form = request.form
+    params = {
+        "tenant_name": form.get("tenant_name","").strip(),
+        "landlord_name": form.get("landlord_name","").strip(),
+        "rent": form.get("rent","").strip(),
+        "security_deposit": form.get("security_deposit","").strip(),
+        "duration_months": form.get("duration_months","").strip(),
+        "address": form.get("address","").strip(),
+        "start_date": form.get("start_date","").strip(),
+    }
+    # validation simple
+    missing = [k for k,v in params.items() if not v]
+    if missing:
+        flash(f"Champs manquants : {', '.join(missing)}", "danger")
+        return redirect(url_for("index"))
+
+    model_id = form.get("model_id") or DEFAULT_MODEL
+    temperature = float(form.get("temperature", "0.4"))
+
+    prompt = build_prompt(params)
+    try:
+        contract_text = call_openrouter(model_id, prompt, temperature=temperature)
+    except Exception as e:
+        flash(str(e), "danger")
+        return redirect(url_for("index"))
+
+    return render_template("result.html", contract_text=contract_text, params=params,
+                           model_id=model_id, temperature=temperature)
+
+if __name__ == "__main__":
+    app.run(debug=True)

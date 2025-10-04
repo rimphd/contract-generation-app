@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="mb-3">Contrat généré</h1>
+<p class="text-muted">Modèle: <code>{{ model_id }}</code> · Température: {{ temperature }}</p>
+<button class="btn btn-outline-primary mb-3" id="copyBtn">Copier le contrat</button>
+<pre id="contractText" style="white-space: pre-wrap; background: #fff; padding: 1rem; border:1px solid #eee; border-radius: .5rem;">
+{{ contract_text }}
+</pre>
+<a class="btn btn-secondary mt-3" href="{{ url_for('index') }}">← Retour</a>
+<script>
+document.getElementById('copyBtn').addEventListener('click', async () => {
+  const text = document.getElementById('contractText').innerText;
+  await navigator.clipboard.writeText(text);
+  alert('Contrat copié !');
+});
+</script>
+{% endblock %}
