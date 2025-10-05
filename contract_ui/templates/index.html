@@ -1,46 +1,69 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="mb-3">Générer un contrat de location</h1>
-<form method="post" action="{{ url_for('generate') }}" class="row g-3">
-  <div class="col-md-6">
-    <label class="form-label">Locataire</label>
-    <input class="form-control" name="tenant_name" required>
+
+<!-- HERO -->
+<section class="hero position-relative overflow-hidden rounded-4 mb-4">
+  <img src="{{ url_for('static', filename='img/hero.svg') }}" class="hero-bg" alt="">
+  <div class="hero-overlay"></div>
+  <div class="hero-inner container py-5">
+    <h1 class="display-4 fw-extrabold mb-2">Générer un contrat de location</h1>
+    <p class="lead text-secondary mb-3">Rédigez un contrat clair en quelques secondes, téléchargeable en <strong>Word</strong> et <strong>PDF</strong>.</p>
+    <div class="d-flex flex-wrap gap-2">
+      <span class="badge rounded-pill text-bg-light"><i class="bi bi-lock-fill me-1"></i>Clé OpenRouter requise</span>
+      <span class="badge rounded-pill text-bg-light"><i class="bi bi-magic me-1"></i>Prompt optimisé</span>
+      <span class="badge rounded-pill text-bg-light"><i class="bi bi-cloud-arrow-down me-1"></i>DOCX & PDF</span>
+    </div>
   </div>
-  <div class="col-md-6">
-    <label class="form-label">Bailleur</label>
-    <input class="form-control" name="landlord_name" required>
-  </div>
-  <div class="col-md-4">
-    <label class="form-label">Loyer (MAD)</label>
-    <input type="number" class="form-control" name="rent" required>
-  </div>
-  <div class="col-md-4">
-    <label class="form-label">Dépôt de garantie (MAD)</label>
-    <input type="number" class="form-control" name="security_deposit" required>
-  </div>
-  <div class="col-md-4">
-    <label class="form-label">Durée (mois)</label>
-    <input type="number" class="form-control" name="duration_months" required>
-  </div>
-  <div class="col-md-8">
-    <label class="form-label">Adresse</label>
-    <input class="form-control" name="address" required>
-  </div>
-  <div class="col-md-4">
-    <label class="form-label">Date de début</label>
-    <input type="date" class="form-control" name="start_date" required>
-  </div>
-  <div class="col-md-8">
-    <label class="form-label">Modèle</label>
-    <input class="form-control" name="model_id" value="{{ default_model }}">
-    <div class="form-text">Ex: meta-llama/llama-3.1-70b-instruct (assure-toi d’y avoir accès)</div>
-  </div>
-  <div class="col-md-4">
-    <label class="form-label">Température</label>
-    <input type="number" step="0.1" min="0" max="1.5" class="form-control" name="temperature" value="0.4">
-  </div>
-  <div class="col-12">
-    <button class="btn btn-primary btn-lg">Générer</button>
-  </div>
-</form>
+</section>
+
+<!-- FORM CARD -->
+<div class="form-card shadow-lg rounded-4 border-0 mx-auto">
+  <form method="post" action="{{ url_for('generate') }}" class="row g-3 p-4">
+    <div class="col-md-6">
+      <label class="form-label">Locataire</label>
+      <input type="text" class="form-control form-control-lg" name="tenant_name" required>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label">Bailleur</label>
+      <input type="text" class="form-control form-control-lg" name="landlord_name" required>
+    </div>
+
+    <div class="col-md-4">
+      <label class="form-label">Loyer (MAD)</label>
+      <input type="number" class="form-control" name="rent" required>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Dépôt de garantie (MAD)</label>
+      <input type="number" class="form-control" name="security_deposit" required>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Durée (mois)</label>
+      <input type="number" class="form-control" name="duration_months" required>
+    </div>
+
+    <div class="col-md-8">
+      <label class="form-label">Adresse</label>
+      <input type="text" class="form-control" name="address" required>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Date de début</label>
+      <input type="date" class="form-control" name="start_date" required>
+    </div>
+
+    <div class="col-md-8">
+      <label class="form-label">Modèle</label>
+      <input type="text" class="form-control" name="model_id" value="meta-llama/llama-3.1-70b-instruct">
+      <div class="form-text">Ex: meta-llama/llama-3.1-70b-instruct (assure-toi d’y avoir accès)</div>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Température</label>
+      <input type="text" class="form-control" name="temperature" value="0,4" inputmode="decimal" pattern="[\d.,]+">
+    </div>
+
+    <div class="col-12 pt-2">
+      <button type="submit" class="btn btn-primary btn-lg px-4"><i class="bi bi-play-fill me-1"></i>Générer</button>
+    </div>
+  </form>
+</div>
+
 {% endblock %}
