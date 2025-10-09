@@ -10,19 +10,43 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import cm
 from dotenv import load_dotenv
+import json, os
+from pathlib import Path
+
 load_dotenv()
+MODELS_JSON_PATH = os.getenv("MODELS_JSON", "models.json")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_MODEL = "meta-llama/llama-3.1-70b-instruct"  # change si besoin
+def load_models_from_json(path: str | Path):
+    path = Path(path)
+    default_model = "meta-llama/llama-3.1-70b-instruct"
+    models_list = []
 
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        default_model = data.get("default", default_model)
+        for item in data.get("models", []):
+            mid = item.get("id")
+            label = item.get("label", mid)
+            if mid:
+                models_list.append((mid, label))
+    except Exception as e:
+        # En cas d'erreur, on garde un fallback minimal
+        print(f"[WARN] models.json non lu ({e}); utilisation d’un fallback.")
+        models_list = [(default_model, "Llama 3.1 70B Instruct (Meta)")]
+
+    # Si le default n'est pas dans la liste, on l’ajoute en tête
+    if models_list and default_model not in {m[0] for m in models_list}:
+        models_list.insert(0, (default_model, f"{default_model}"))
+
+    return default_model, models_list
+DEFAULT_MODEL, AVAILABLE_MODELS = load_models_from_json(MODELS_JSON_PATH)
 app = Flask(__name__)
 app.secret_key = "dev-secret"  # change en prod
 
-def call_openrouter(model_id: str, prompt: str, temperature: float = 0.4, max_tokens: int = 1600) -> str:
-    if not OPENROUTER_API_KEY:
-        raise RuntimeError("OPENROUTER_API_KEY manquante. Défini-la dans ton terminal avant de lancer l'app.")
+def call_openrouter(model_id: str, prompt: str, temperature=0.4, max_tokens=1600) -> str:
     headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Authorization": f"Bearer {os.getenv('OPENROUTER_API_KEY')}",
         "Content-Type": "application/json",
         "HTTP-Referer": "http://localhost",
         "X-Title": "Contract-UI",
@@ -33,12 +57,21 @@ def call_openrouter(model_id: str, prompt: str, temperature: float = 0.4, max_to
             {"role": "system", "content": "Tu es un assistant juridique et tu rédiges des contrats complets et soignés."},
             {"role": "user", "content": prompt},
         ],
-        "temperature": float(temperature),
+        "temperature": float(temperature),   # <- déjà normalisé
         "max_tokens": int(max_tokens),
         "stream": False,
     }
-    r = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=180)
-    r.raise_for_status()
+
+    r = requests.post("https://openrouter.ai/api/v1/chat/completions",
+                      headers=headers, json=payload, timeout=180)
+    if r.status_code != 200:
+        # Affiche l'erreur JSON d’OpenRouter pour diagnostiquer (évite le 400 silencieux)
+        try:
+            err = r.json()
+        except Exception:
+            err = r.text
+        raise RuntimeError(f"OpenRouter {r.status_code}: {err}")
+
     data = r.json()
     return data["choices"][0]["message"]["content"].strip()
 
@@ -86,41 +119,78 @@ def make_pdf(title: str, text: str) -> BytesIO:
     doc.build(story)
     buf.seek(0)
     return buf
+def to_float_fr(x, default=None):
+    """Accepte '0,4' '0.4' ' 0,4 ' -> 0.4"""
+    try:
+        if x is None:
+            return default
+        s = str(x).strip().replace("\u00a0", "").replace(" ", "").replace(",", ".")
+        return float(s)
+    except Exception:
+        return default
 
+def to_int_fr(x, default=None):
+    """Accepte '7 000' '7,000' '7000' -> 7000"""
+    try:
+        if x is None:
+            return default
+        s = str(x).strip().replace("\u00a0", "").replace(" ", "").replace(",", "")
+        return int(s)
+    except Exception:
+        return default
 @app.route("/", methods=["GET"])
 def index():
-    return render_template("index.html", default_model=DEFAULT_MODEL)
+    return render_template("index.html",
+                           default_model=DEFAULT_MODEL,
+                           models=AVAILABLE_MODELS)
+
 
 @app.route("/generate", methods=["POST"])
 def generate():
     form = request.form
+
     params = {
         "tenant_name": form.get("tenant_name","").strip(),
         "landlord_name": form.get("landlord_name","").strip(),
-        "rent": form.get("rent","").strip(),
-        "security_deposit": form.get("security_deposit","").strip(),
-        "duration_months": form.get("duration_months","").strip(),
+        "rent": to_int_fr(form.get("rent")),
+        "security_deposit": to_int_fr(form.get("security_deposit")),
+        "duration_months": to_int_fr(form.get("duration_months")),
         "address": form.get("address","").strip(),
         "start_date": form.get("start_date","").strip(),
     }
-    # validation simple
-    missing = [k for k,v in params.items() if not v]
-    if missing:
-        flash(f"Champs manquants : {', '.join(missing)}", "danger")
+
+    # validation
+    missing = [k for k in ["tenant_name","landlord_name","address","start_date"] if not params[k]]
+    invalid = [k for k in ["rent","security_deposit","duration_months"] if params[k] is None]
+    if missing or invalid:
+        msg = []
+        if missing: msg.append(f"Champs manquants : {', '.join(missing)}")
+        if invalid: msg.append(f"Champs numériques invalides : {', '.join(invalid)}")
+        flash(" — ".join(msg), "danger")
         return redirect(url_for("index"))
 
-    model_id = form.get("model_id") or DEFAULT_MODEL
-    temperature = float(form.get("temperature", "0.4"))
+    # modèle + température (temp peut être '0,4' -> 0.4)
+    model_choice = (request.form.get("model_id") or "").strip()
+    if model_choice == "__custom__":
+        model_id = (request.form.get("model_id_custom") or "").strip()
+    else:
+        model_id = model_choice or DEFAULT_MODEL
+    temperature = to_float_fr(form.get("temperature"), 0.4)
 
     prompt = build_prompt(params)
+
     try:
-        contract_text = call_openrouter(model_id, prompt, temperature=temperature)
+        contract_text = call_openrouter(model_id, prompt, temperature=temperature, max_tokens=1600)
     except Exception as e:
         flash(str(e), "danger")
         return redirect(url_for("index"))
 
-    return render_template("result.html", contract_text=contract_text, params=params,
-                           model_id=model_id, temperature=temperature)
+    return render_template("result.html",
+                           contract_text=contract_text,
+                           params=params,
+                           model_id=model_id,
+                           temperature=temperature)
+
 
 @app.post("/download-docx")
 def download_docx_no_db():

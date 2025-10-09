@@ -51,13 +51,38 @@
     </div>
 
     <div class="col-md-8">
-      <label class="form-label">Modèle</label>
-      <input type="text" class="form-control" name="model_id" value="meta-llama/llama-3.1-70b-instruct">
-      <div class="form-text">Ex: meta-llama/llama-3.1-70b-instruct (assure-toi d’y avoir accès)</div>
-    </div>
+  <label class="form-label">Modèle</label>
+
+  <select class="form-select" name="model_id" id="modelSelect">
+    {% for value, label in models %}
+      <option value="{{ value }}" {% if value == default_model %}selected{% endif %}>
+        {{ label }} — {{ value }}
+      </option>
+    {% endfor %}
+    <option value="__custom__">➕ Autre (saisir un model_id)</option>
+  </select>
+
+  <input class="form-control mt-2 d-none"
+         name="model_id_custom"
+         id="modelCustom"
+         placeholder="ex: mistralai/mistral-7b-instruct">
+
+</div>
+
+<script>
+  const sel = document.getElementById('modelSelect');
+  const custom = document.getElementById('modelCustom');
+  function toggleCustom(){ custom.classList.toggle('d-none', sel.value !== '__custom__'); }
+  sel.addEventListener('change', toggleCustom);
+  toggleCustom();
+</script>
+
+
     <div class="col-md-4">
       <label class="form-label">Température</label>
-      <input type="text" class="form-control" name="temperature" value="0,4" inputmode="decimal" pattern="[\d.,]+">
+      <input type="text" class="form-control" name="temperature"
+       value="0,4" inputmode="decimal" pattern="[\d.,]+">
+
     </div>
 
     <div class="col-12 pt-2">
@@ -65,5 +90,12 @@
     </div>
   </form>
 </div>
+<script>
+  const sel = document.getElementById('modelSelect');
+  const custom = document.getElementById('modelCustom');
+  function toggleCustom() { custom.classList.toggle('d-none', sel.value !== '__custom__'); }
+  sel.addEventListener('change', toggleCustom);
+  toggleCustom();
+</script>
 
 {% endblock %}
