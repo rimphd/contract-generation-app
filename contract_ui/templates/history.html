@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>Historique des contrats</h3>
+<table class="table table-sm">
+  <thead>
+    <tr>
+      <th>ID</th><th>Locataire</th><th>Bailleur</th><th>Modèle</th><th>Créé le</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <td>{{ r.id }}</td>
+      <td>{{ r.tenant_name }}</td>
+      <td>{{ r.landlord_name }}</td>
+      <td><code>{{ r.model_id }}</code></td>
+      <td>{{ r.created_at }}</td>
+      <td><a class="btn btn-sm btn-primary" href="{{ url_for('view_contract', contract_id=r.id) }}">Ouvrir</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -18,7 +18,7 @@
     { "id": "shisa-ai/shisa-v2-llama3.3-70b:free",         "label": "Shisa AI: Shisa V2 Llama 3.3 70B (free)" },
     { "id": "meta-llama/llama-4-scout:free",         "label": "Meta: Llama 4 Scout (free)" },
     { "id": "mistralai/devstral-small-2505:free", "label": "Mistral: Devstral Small 2505 (free)" },
-    { "id": "nousresearch/deephermes-3-llama-3-8b-preview:free", "label": "Nous: DeepHermes 3 Llama 3 8B Preview (free)" },
+    { "id": "nousresearch/deephermes-3-llama-3-8b-preview:free", "label": "nousresearch: DeepHermes 3 Llama 3 8B Preview (free)" },
     { "id": "meta-llama/llama-3.3-8b-instruct:free","label": "Meta: Llama 3.3 8B Instruct (free)" },
     { "id": "qwen/qwen3-4b:free",         "label": "Qwen: Qwen3 4B (free)" },
     { "id": "qwen/qwen-2.5-72b-instruct:free",         "label": "Qwen2.5 72B Instruct (free)" },

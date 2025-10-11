@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>Contrat #{{ c.id }}</h3>
+<p class="text-muted">
+  {{ c.tenant_name }} — {{ c.landlord_name }} ·
+  modèle <code>{{ c.model_id }}</code> ·
+  {{ c.created_at }}
+</p>
+<pre class="border p-3" style="white-space: pre-wrap;">{{ c.content }}</pre>
+
+<a class="btn btn-outline-secondary" href="{{ url_for('history') }}">← Historique</a>
+<a class="btn btn-outline-primary" href="{{ url_for('index') }}">Nouveau contrat</a>
+{% endblock %}

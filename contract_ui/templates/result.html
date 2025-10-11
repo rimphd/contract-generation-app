@@ -19,6 +19,24 @@
     <button class="btn btn-danger" type="submit">Télécharger (.pdf)</button>
   </form>
 </div>
+<form method="post" action="{{ url_for('save') }}">
+  <!-- contenu du contrat -->
+  <textarea name="contract_text" class="d-none">{{ contract_text }}</textarea>
+
+  <!-- métadonnées pour la DB -->
+  <input type="hidden" name="model_id" value="{{ model_id }}">
+  <input type="hidden" name="temperature" value="{{ temperature }}">
+  {% for k, v in params.items() %}
+    <input type="hidden" name="{{ k }}" value="{{ v }}">
+  {% endfor %}
+
+  <button class="btn btn-success mt-2">
+    💾 Sauvegarder
+  </button>
+  <a class="btn btn-outline-secondary mt-2" href="{{ url_for('history') }}">
+    Historique
+  </a>
+</form>
 
 <div class="contract-card">
   <pre class="contract-content" id="contractText">{{ contract_text }}</pre>

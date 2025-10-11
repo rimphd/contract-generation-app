@@ -12,6 +12,9 @@ from reportlab.lib.units import cm
 from dotenv import load_dotenv
 import json, os
 from pathlib import Path
+import sqlite3
+from pathlib import Path
+from flask import abort
 
 load_dotenv()
 MODELS_JSON_PATH = os.getenv("MODELS_JSON", "models.json")
@@ -191,7 +194,49 @@ def generate():
                            model_id=model_id,
                            temperature=temperature)
 
+@app.post("/save")
+def save():
+    # contenu du contrat et métadonnées envoyés depuis la page de résultat
+    content = (request.form.get("contract_text") or "").strip()
+    if not content:
+        flash("Pas de contenu à sauvegarder.", "warning")
+        return redirect(url_for("index"))
 
+    params = {
+        "tenant_name": request.form.get("tenant_name"),
+        "landlord_name": request.form.get("landlord_name"),
+        "rent": request.form.get("rent"),
+        "security_deposit": request.form.get("security_deposit"),
+        "duration_months": request.form.get("duration_months"),
+        "address": request.form.get("address"),
+        "start_date": request.form.get("start_date"),
+    }
+    model_id = request.form.get("model_id")
+    temperature = request.form.get("temperature")
+
+    new_id = save_contract(params, model_id, temperature, content)
+    flash(f"Contrat sauvegardé (id {new_id}).", "success")
+    return redirect(url_for("view_contract", contract_id=new_id))
+
+@app.get("/history")
+def history():
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("""
+            SELECT id, tenant_name, landlord_name, model_id, created_at
+            FROM contracts ORDER BY id DESC
+        """).fetchall()
+    return render_template("history.html", rows=rows)
+
+@app.get("/contract/<int:contract_id>")
+def view_contract(contract_id: int):
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute("SELECT * FROM contracts WHERE id=?", (contract_id,)).fetchone()
+    if not row:
+        abort(404)
+    # Réaffiche proprement le contrat sauvegardé
+    return render_template("view_contract.html", c=row)
 @app.post("/download-docx")
 def download_docx_no_db():
     text = request.form.get("contract_text", "")
@@ -215,6 +260,48 @@ def download_pdf_no_db():
                      as_attachment=True,
                      download_name="contrat.pdf",
                      mimetype="application/pdf")
+DB_PATH = Path("contracts.db")
+
+def init_db():
+    DB_PATH.touch(exist_ok=True)
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute("""
+        CREATE TABLE IF NOT EXISTS contracts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tenant_name TEXT,
+            landlord_name TEXT,
+            rent INTEGER,
+            security_deposit INTEGER,
+            duration_months INTEGER,
+            address TEXT,
+            start_date TEXT,
+            model_id TEXT,
+            temperature REAL,
+            content TEXT NOT NULL,
+            created_at TEXT DEFAULT (datetime('now'))
+        )
+        """)
+        conn.commit()
+
+def save_contract(params, model_id, temperature, content) -> int:
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute("""
+            INSERT INTO contracts
+            (tenant_name, landlord_name, rent, security_deposit, duration_months,
+             address, start_date, model_id, temperature, content)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            params.get("tenant_name"), params.get("landlord_name"),
+            params.get("rent"), params.get("security_deposit"),
+            params.get("duration_months"), params.get("address"),
+            params.get("start_date"), model_id, float(temperature or 0.0),
+            content,
+        ))
+        cur = conn.execute("SELECT last_insert_rowid()")
+        (new_id,) = cur.fetchone()
+        conn.commit()
+        return int(new_id)
 
 if __name__ == "__main__":
+    init_db()
     app.run(debug=True)
